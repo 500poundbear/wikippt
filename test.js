@@ -6,34 +6,47 @@ $ = cheerio.load('<h2 class="title">Hello</h2>');
 $('h2.title').text('Hello there');
 $('h2').addClass('welcome');
 
-console.log($.html());
 
 var links = {};
-links['getintro'] = "http://en.wikipedia.org/w/api.php?action=query&prop=extracts&titles=Hanoi&exintro=true&format=json";
-links['getbody'] = "http://en.wikipedia.org/w/api.php?action=query&prop=extracts&titles=Hanoi&format=json";
+links['getintro'] = "http://en.wikipedia.org/w/api.php?action=query&prop=extracts&titles=Suicide_attack&exintro=true&format=json";
+links['getbody'] = "http://en.wikipedia.org/w/api.php?action=query&prop=extracts&titles=Suicide_attack&format=json";
 
 
 var extract={};
-request(links['getbody'],function(error, response,body){
+
+fs.open('yolo.md','w',function(){
+	request(links['getintro'],writetofile);
+	request(links['getbody'],writetofile);
+
+});
+var writetofile = function(error, response,body){
 	if(!error && response.statusCode ==200){
 		processintro(body);
 		var string="";
-		string+="# Introduction\n";
-		var cnter=0;
-		for(var x in extract.extract){
-			if(cnter>5){
-				string+="\n\n---\n\n##Second\n";
-				cnter=0;
+		
+		for(var q in extract.tidied){
+
+			if(typeof extract.tidied[q]!=='function'&&extract.tidied[q].content!=="undefined"){
+				if(extract.tidied[q].type==='bigheader'){
+					string+="# "+extract.tidied[q].content+"\n";
+					
+				}else if(extract.tidied[q].type==='header'){
+					string+="## ";
+					string+=extract.tidied[q].content+"\n";
+				}else if(extract.tidied[q].type==='content'){
+					string+="* "+extract.tidied[q].content+"\n";
+					string+="\n\n---\n\n\n";
+				}
+				/* RUN CONTENT SPLITTING FN HERE */
+			
 			}
-			string+="* "+extract.extract[x]+"\n";
-			cnter++;
-		}	
-		/*fs.writeFile("yolo.md",string,function (err){
+		}
+		fs.appendFile("yolo.md",string,function (err){
 			if(err)console.log(err);
-		});*/
+		});
 		//console.log(string);
 	}
-});
+};
 function processintro(body){
 	var temp = JSON.parse(body).query.pages;
 	var first;
@@ -50,36 +63,63 @@ function processintro(body){
 		}
 	}
 	/* time to split extract into parts */
-	text = extract.extract;
+	text = extract.extract.replace(/(\r\n|\n|\r)/gm,"");
+/*Splits extract into blocks based on the <hx> tags */
+	texttemp=text;
+	var regEx = /\<h2\>.*?\<\/h2\>.*?(?=\<h2\>)/ig;
+	text = text.match(regEx);
+	//divides text into header(title) and content
+	var tidypresent = [];
+	regexheader = /\<h2\>.*?\<\/h2\>/gi;
+	if(text==null){
+		/*if no <h2> present </h2> --> like in intro*/
+		text=[];
+		text[0]=texttemp;
+	}	
+	for(var q=0;q<text.length;q++){
+	/* Plan: if <h3> is present then keep a p with it. if no <h3> then just find p*/
+		if(regexheader.test(text)){
+			var temp={},tempa,tempb;
+			temp['type']='bigheader';
+			tempa = text[q].match(/\<h2\>(.*?)\<\/h2\>/);
+			temp['content']= tempa[1];
+			if(temp['content']=='See also')break;
+			tidypresent.push(temp);
+			tem2 = text[q].split(regexheader);//stores whatever is after the <h2></h2> tag
+			tem2 = tem2[1];	
+		}else tem2 = text[q];
 
-	/*Splits extract into blocks based on the <hx> tags */
-	var regEx = /\<h[1-6]\>.*?\<\/h[1-6]\>.*?(?=\<h[1-6]\>)/ig;
-	text = text.split(regEx);
+			tem2 = tem2.split(/\<h3\>(.*?)\<\/h3\>\<p\>(.*?)\<\/p\>|\<p\>(.*?)\<\/p\>/);
+			//
+			//if patten follows h3 then h2, tem2[1] and tem2[2] stores h3 then p, else tem2[3] stores p and beyond
+			//
 
+			if(tem2[1]!=""&&typeof tem2[1]!="undefined"){
+				temp={};
+				temp['type']='header';
+				temp['content']=tem2[1];
+				tidypresent.push(temp);
 
-	/* Removes all offending tags in text body*/
-//	text = text.replace(/(<([^>]+)>)/ig,"");
-	
-	for(var q in text){
-		//console.log(text[q]);
-		//console.log('\n\n\n');
+				temp={};
+				temp['type']='content';
+				temp['content']=tem2[2];
+				tidypresent.push(temp);
+			}else if(tem2[3]!=""){/* No <h3> just p*/
+		
+				temp={};
+				temp['type']='content';
+				temp['content']=tem2[3];
+				tidypresent.push(temp);
+			}
+		
+		
 	}
-
-/*
-	var collector = [];
-	for(var i in text){
-		text[i] = text[i].trim();
-		text[i] = text[i].split('. ');
-		for(var q in text[i]){
-			collector.push(text[i][q]);
-		}
-	}
-	extract.extract = collector;*/
+	console.log(tidypresent);
+	extract.tidied = tidypresent;
 }
 //Helper functions
 var testregex = /<h2>/g;
 var teststring = "woop<h2>bah<b><h2>hey<b>dohdohdoh</h2>";
-console.log(teststring);
 String.prototype.splitz = function(regex){
 	return this.split(regex);
 }
