@@ -10,9 +10,11 @@ console.log($.html());
 
 var links = {};
 links['getintro'] = "http://en.wikipedia.org/w/api.php?action=query&prop=extracts&titles=Hanoi&exintro=true&format=json";
+links['getbody'] = "http://en.wikipedia.org/w/api.php?action=query&prop=extracts&titles=Hanoi&format=json";
+
 
 var extract={};
-request(links['getintro'],function(error, response,body){
+request(links['getbody'],function(error, response,body){
 	if(!error && response.statusCode ==200){
 		processintro(body);
 		var string="";
@@ -26,9 +28,10 @@ request(links['getintro'],function(error, response,body){
 			string+="* "+extract.extract[x]+"\n";
 			cnter++;
 		}	
-		fs.writeFile("yolo.md",string,function (err){
+		/*fs.writeFile("yolo.md",string,function (err){
 			if(err)console.log(err);
-		});
+		});*/
+		//console.log(string);
 	}
 });
 function processintro(body){
@@ -47,17 +50,56 @@ function processintro(body){
 		}
 	}
 	/* time to split extract into parts */
+	text = extract.extract;
 
-	var text = extract.extract;
-	text = text.replace(/(<([^>]+)>)/ig,"");
-	var regEx = /\./	;
+	/*Splits extract into blocks based on the <hx> tags */
+	var regEx = /\<h[1-6]\>.*?\<\/h[1-6]\>.*?(?=\<h[1-6]\>)/ig;
 	text = text.split(regEx);
+
+
+	/* Removes all offending tags in text body*/
+//	text = text.replace(/(<([^>]+)>)/ig,"");
 	
+	for(var q in text){
+		//console.log(text[q]);
+		//console.log('\n\n\n');
+	}
+
+/*
+	var collector = [];
 	for(var i in text){
 		text[i] = text[i].trim();
+		text[i] = text[i].split('. ');
+		for(var q in text[i]){
+			collector.push(text[i][q]);
+		}
 	}
-	extract.extract = text;
+	extract.extract = collector;*/
 }
-
+//Helper functions
+var testregex = /<h2>/g;
+var teststring = "woop<h2>bah<b><h2>hey<b>dohdohdoh</h2>";
+console.log(teststring);
+String.prototype.splitz = function(regex){
+	return this.split(regex);
+}
+Object.prototype.splitz = function(regex){
+	var retun = [];
+	for(var i in this){
+		if(typeof this[i]==='string'){
+			var temp = this[i].splitz(regex);
+			for(var j in temp){
+				if(typeof temp[j]==='string'&&temp[j]!='')retun.push(temp[j]);		
+			}
+		}
+	}
+	return retun;
+}
+Object.prototype.trim = function(){}
+//console.log(teststring.splitz(testregex).splitz('o'));
+String.prototype.replacez = function(regex,rep){
+	return this.replace(regex,rep);
+}
+//console.log(teststring.replacez(testregex,'FUC').replacez('bah','MIAN'));
 
 
